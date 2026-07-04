@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
+:root {
+  --background: #f5f7fa;
+  --foreground: #0f1724;
+
+  /* Brand colors */
+  --suit-navy: #0b2740; /* deep elegant blue */
+  --suit-gold: #d4af37;
+  --suit-surface: #ffffff;
+  --suit-muted: #f3f4f6;
+}
+
+:root.theme-dark {
+  --background: #0f172a;
+  --foreground: #e5e7eb;
+  --suit-navy: #081827;
+  --suit-surface: #111827;
+  --suit-muted: #111827;
+}
+
+:root.theme-light {
+  --background: #f5f7fa;
+  --foreground: #0f1724;
+  --suit-navy: #0b2740;
+  --suit-surface: #ffffff;
+  --suit-muted: #f3f4f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+:root.theme-dark .bg-\[\#F3F5F8\] {
+  background-color: #0f172a !important;
+}
+
+:root.theme-dark .bg-white,
+:root.theme-dark .bg-slate-50,
+:root.theme-dark .bg-slate-100 {
+  background-color: #111827 !important;
+}
+
+:root.theme-dark .bg-white\/70,
+:root.theme-dark .bg-white\/80,
+:root.theme-dark .bg-white\/90 {
+  background-color: rgb(17 24 39 / 0.86) !important;
+}
+
+:root.theme-dark .border-slate-200,
+:root.theme-dark .border-gray-200,
+:root.theme-dark .border-white\/80 {
+  border-color: rgb(51 65 85 / 0.9) !important;
+}
+
+:root.theme-dark .text-\[\#17182b\],
+:root.theme-dark .text-slate-900,
+:root.theme-dark .text-slate-800,
+:root.theme-dark .text-gray-700,
+:root.theme-dark .text-slate-700 {
+  color: #e5e7eb !important;
+}
+
+:root.theme-dark .text-gray-600,
+:root.theme-dark .text-slate-600,
+:root.theme-dark .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+:root.theme-dark input,
+:root.theme-dark select,
+:root.theme-dark textarea {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e5e7eb;
+}
+
+:root.theme-dark input::placeholder,
+:root.theme-dark textarea::placeholder {
+  color: #94a3b8;
+}
