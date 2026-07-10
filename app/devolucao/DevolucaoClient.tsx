@@ -66,6 +66,7 @@ function StatusBadge({ status }: { status: ReturnOrder["status"] }) {
 export default function DevolucaoClient({ initialOrders }: { initialOrders: ReturnOrder[] }) {
   const [tab, setTab] = useState("Todas");
   const [orders, setOrders] = useState<ReturnOrder[]>(initialOrders);
+  const [message, setMessage] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ReturnOrder | null>(null);
   const [hasDamage, setHasDamage] = useState(false);
   const [damageFee, setDamageFee] = useState(50);
@@ -99,6 +100,7 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
     };
 
     try {
+      setMessage(null);
       const response = await fetch("/api/devolucao", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -114,16 +116,26 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
         }),
       });
       if (!response.ok) {
-        throw new Error("Falha ao atualizar devolução.");
+        let errorMessage = "Falha ao atualizar devolução.";
+        try {
+          const body = await response.json();
+          if (typeof body?.message === "string" && body.message.trim()) {
+            errorMessage = body.message;
+          }
+        } catch {
+        }
+        throw new Error(errorMessage);
       }
 
       setOrders((prev) => prev.map((item) => (item.order === order.order ? completedOrder : item)));
+      setMessage("Devolução confirmada com sucesso.");
       setSelectedOrder(null);
       setHasDamage(false);
       setDamageFee(50);
       setReturnDestination("inventario");
     } catch (error) {
       console.error(error);
+      setMessage(error instanceof Error ? error.message : "Falha ao confirmar devolução.");
     }
   }
 
@@ -163,6 +175,10 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
             <StatCard label="Atrasados" value={orders.filter((order) => order.status === "Atrasado").length} />
             <StatCard label="Finalizados (Hoje)" value={orders.filter((order) => order.status === "Devolvido").length} />
           </div>
+
+          {message ? (
+            <div className="mb-6 rounded-3xl border border-orange-200 bg-orange-50 px-6 py-4 text-sm text-orange-800 shadow-sm">{message}</div>
+          ) : null}
 
           <div className="bg-white rounded-[28px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)] mb-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">

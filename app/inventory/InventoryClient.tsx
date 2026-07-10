@@ -29,6 +29,24 @@ function isValidPhone(value: string) {
   return /^\d{10,13}$/.test(value);
 }
 
+function actionByStatus(status: InventoryItem["status"]) {
+  if (status === "Disponível") return "Reservar Traje";
+  if (status === "Lavanderia") return "Voltar Disponível";
+  return "Ver Pedido";
+}
+
+function normalizeInventoryItem(item: InventoryItem): InventoryItem {
+  const nextAction = actionByStatus(item.status);
+  if (item.action === nextAction) {
+    return item;
+  }
+
+  return {
+    ...item,
+    action: nextAction,
+  };
+}
+
 function StatusBadge({ status }: { status: InventoryItem["status"] }) {
   const map: Record<InventoryItem["status"], string> = {
     Disponível: "text-green-500",
@@ -114,7 +132,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
   initialCostureiras: Array<{ id: string; name: string; role: string }>;
 }) {
   const [mounted, setMounted] = useState(false);
-  const [items, setItems] = useState<InventoryItem[]>(initialItems);
+  const [items, setItems] = useState<InventoryItem[]>(() => initialItems.map(normalizeInventoryItem));
   const [activeTab, setActiveTab] = useState<"Todas" | InventoryItem["status"]>("Disponível");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -177,7 +195,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
 
       const freshItems = await response.json();
       if (Array.isArray(freshItems)) {
-        setItems(freshItems);
+        setItems(freshItems.map((item) => normalizeInventoryItem(item as InventoryItem)));
       }
     } catch (error) {
       console.error("Falha ao sincronizar inventário:", error);
@@ -257,7 +275,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
       location: formData.location,
       stock: formData.stock,
       image: formData.image,
-      action: "Reservar Traje",
+      action: actionByStatus(formData.status),
       priceCategory: formData.priceCategory,
       price: formData.price,
     };
@@ -270,7 +288,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
       });
       if (!response.ok) throw new Error("Falha no envio");
       const created = await response.json();
-      setItems((prev) => [created, ...prev]);
+      setItems((prev) => [normalizeInventoryItem(created as InventoryItem), ...prev]);
       void loadInventoryFromServer(true);
       setMessage("Traje enviado com sucesso.");
       setShowForm(false);
@@ -312,11 +330,41 @@ export default function InventoryClient({ initialItems, initialPayments, initial
   }
 
   async function handleItemAction(item: InventoryItem, plan: "Diário" | "Semanal") {
-    if (item.action.includes("Reservar")) {
+    if (item.status === "Disponível") {
       setReservationItem(item);
       setReservationPlan(plan);
       setReservationForm({ clientName: "", clientPhone: "", clientEmail: "", entryAmount: 50 });
       setMessage("Preencha os dados do cliente para confirmar a reserva.");
+      return;
+    }
+
+    if (item.status === "Lavanderia") {
+      const nextItem: InventoryItem = {
+        ...item,
+        status: "Disponível",
+        location: "Estoque Central",
+        stock: Math.max(1, item.stock),
+        action: "Reservar Traje",
+      };
+
+      try {
+        const response = await fetch(`/api/inventory/${item.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nextItem),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Falha ao atualizar item (${response.status}).`);
+        }
+
+        const updated = await response.json();
+        setItems((prev) => prev.map((existing) => (existing.id === item.id ? normalizeInventoryItem(updated as InventoryItem) : existing)));
+        setMessage(`Traje ${item.id} voltou para disponível.`);
+      } catch (error) {
+        console.error(error);
+        setMessage("Não foi possível atualizar o traje agora.");
+      }
       return;
     }
 
@@ -455,7 +503,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
       }
 
       const updated = await inventoryRes.json();
-      setItems((prev) => prev.map((existing) => (existing.id === updated.id ? updated : existing)));
+      setItems((prev) => prev.map((existing) => (existing.id === updated.id ? normalizeInventoryItem(updated as InventoryItem) : existing)));
       setPayments((prev) => [
         ...prev,
         {

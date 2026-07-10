@@ -95,12 +95,25 @@ export async function PATCH(request: Request) {
           status: "Lavanderia",
           location: "Lavanderia",
           stock: 0,
-          action: "Ver Pedido",
+          action: "Voltar Disponível",
         };
 
     const effectiveLaundryStatus = laundryStatus ?? (destination === "inventario" ? "Concluído" : "Em lavanderia");
 
     await withTransaction(async (client) => {
+      const pendingPayment = await client.query(
+        `SELECT id, payment_type FROM payments WHERE item_id = $1 AND status = 'Pendente' LIMIT 1`,
+        [itemId]
+      );
+
+      if ((pendingPayment.rowCount ?? 0) > 0) {
+        const payment = pendingPayment.rows[0] as { id: string; payment_type: string };
+        const paymentLabel = payment.payment_type === "Multa" ? "multa" : "pagamento";
+        const businessRuleError = new Error(`Não foi possível confirmar a devolução: existe ${paymentLabel} pendente para este traje.`) as Error & { statusCode: number };
+        businessRuleError.statusCode = 409;
+        throw businessRuleError;
+      }
+
       const updatedReturn = await client.query(
         `UPDATE return_orders
          SET status = $1,
@@ -171,6 +184,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Devolução confirmada." });
   } catch (error) {
     console.error("Devolucao PATCH error:", error);
-    return NextResponse.json({ message: "Erro interno ao atualizar pedido." }, { status: 500 });
+    const statusCode = typeof error === "object" && error && "statusCode" in error
+      ? Number((error as { statusCode?: unknown }).statusCode)
+      : 500;
+    const message = error instanceof Error ? error.message : "Erro interno ao atualizar pedido.";
+    return NextResponse.json({ message }, { status: Number.isFinite(statusCode) ? statusCode : 500 });
   }
 }

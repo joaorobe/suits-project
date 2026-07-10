@@ -15,12 +15,27 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
 
   const filteredPayments = useMemo(() => {
-    return payments.filter((payment) =>
-      [payment.id, payment.itemId, payment.itemTitle, payment.plan, payment.paymentType, payment.status, payment.clientName, payment.clientPhone, payment.clientEmail]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    );
+    return payments
+      .filter((payment) =>
+        [payment.id, payment.itemId, payment.itemTitle, payment.plan, payment.paymentType, payment.status, payment.clientName, payment.clientPhone, payment.clientEmail]
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      )
+      .sort((a, b) => {
+        const priority = (record: PaymentRecord) => {
+          if (record.status !== "Pago" && record.paymentType === "Multa") return 0;
+          if (record.status !== "Pago") return 1;
+          return 2;
+        };
+
+        const byPriority = priority(a) - priority(b);
+        if (byPriority !== 0) return byPriority;
+
+        const aDate = new Date(a.createdAt).getTime();
+        const bDate = new Date(b.createdAt).getTime();
+        return bDate - aDate;
+      });
   }, [payments, search]);
 
   const totalDue = useMemo(
