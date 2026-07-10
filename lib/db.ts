@@ -1,21 +1,31 @@
 import { Pool, type PoolClient } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("Missing DATABASE_URL environment variable.");
-}
+let pool: Pool | null = null;
 
-const pool = new Pool({
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+function getPool() {
+  if (pool) {
+    return pool;
+  }
+
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("Missing DATABASE_URL environment variable.");
+  }
+
+  pool = new Pool({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
+
+  return pool;
+}
 
 let initializationPromise: Promise<void> | null = null;
 
 async function initDatabase() {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -149,7 +159,7 @@ export async function query(text: string, params?: unknown[]) {
     initializationPromise = initDatabase();
   }
   await initializationPromise;
-  return pool.query(text, params);
+  return getPool().query(text, params);
 }
 
 export async function withTransaction<T>(operation: (client: PoolClient) => Promise<T>) {
@@ -158,7 +168,7 @@ export async function withTransaction<T>(operation: (client: PoolClient) => Prom
   }
   await initializationPromise;
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     const result = await operation(client);
